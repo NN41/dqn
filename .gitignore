@@ -79,3 +79,6 @@ runs/*
 
 # Trained model files
 models/*
+
+# Private files
+notes.txt
