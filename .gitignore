@@ -69,7 +69,8 @@ venv.bak/
 .idea/
 
 # Jupyter
-.ipynb_checkpoints
+.ipynb_checkpoints/
+*.ipynb
 
 # ===================================================================
 # Project-Specific Files
@@ -82,3 +83,4 @@ models/*
 
 # Private files
 notes.txt
+dev.ipnyb
