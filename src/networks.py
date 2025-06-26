@@ -16,7 +16,7 @@ class QNetwork(nn.Module):
         h2 = F.relu(self.conv2(h1))
         h2_flat = torch.flatten(h2, start_dim=-3)
         h3 = F.relu(self.fc1(h2_flat))
-        logits = self.fc2(h3)
-        return logits
+        output = self.fc2(h3) # these are not logits (unnormalized probabilities), they are Q-values for each action
+        return output
  
  

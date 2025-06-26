@@ -7,17 +7,36 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 from collections import deque
 
-class ReplayMemory:
+# class ReplayMemory:
+#     def __init__(self, capacity: int):
+#         self.memory = deque()
+#         self.capacity = capacity # paper uses 1e6
+#         self.memory_size = 0
+
+#     def add_experience(self, sample: list):
+#         self.memory.append(sample)
+#         self.memory_size += 1
+#         if self.memory_size > self.capacity:
+#             self.memory.popleft()
+#             self.memory_size -= 1
+
+class FixedSizeMemory:
     def __init__(self, capacity: int):
         self.memory = deque()
-        self.capacity = capacity # paper uses 1e6
+        self.capacity = capacity
         self.memory_size = 0
 
-    def add_experience(self, sample: list):
+    def add(self, sample):
         self.memory.append(sample)
         self.memory_size += 1
         if self.memory_size > self.capacity:
             self.memory.popleft()
+            self.memory_size -= 1
+
+    def empty(self):
+        self.memory = deque()
+        self.memory_size = 0
+
 
 def compute_discounted_reverse_cumsums(vals, disc_factor):
     """Helper function for computing cumulative sums in reverse order with a discount factor."""
