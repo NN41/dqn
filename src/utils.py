@@ -4,21 +4,17 @@ import numpy as np
 from collections import deque
 
 class ReplayBuffer(deque):
-    def __init__(self, capacity: int):
+    def __init__(self, capacity: int) -> None:
         super().__init__(maxlen=capacity)
 
     def sample(self, batch_size: int) -> np.array:
         return np.random.choice(self, size=batch_size, replace=False)
 
 class FrameBuffer(deque):
-    def __init__(self, capacity: int, device: torch.device):
+    def __init__(self, capacity: int, device: str, transforms: v2.Compose) -> None:
         super().__init__(maxlen=capacity)
         self.device = device
-        self.transforms = v2.Compose([
-            v2.Grayscale(),
-            v2.ToDtype(torch.float32, scale=True),
-            v2.Resize(size=(84,84)),
-        ])
+        self.transforms = transforms
 
     def preprocess(self) -> torch.Tensor:
         img_t_list = []
