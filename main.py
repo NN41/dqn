@@ -29,6 +29,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.utils import ReplayBuffer, FrameBuffer
 from src.networks import QNetwork
+from src.evaluator import Evaluator
 from src.config import Config
 from src.environment import EnvironmentManager
 from src.agent import Agent
@@ -70,38 +71,6 @@ transforms = v2.Compose([
             v2.Resize(size=(84,84)),
         ])
 
-def generate_frame_test_set(num_test_frames: int, transforms: v2.Compose, env: gym.Env):
-
-    env = gym.make("ALE/Pong-v5")
-    obs, info = env.reset(seed=config.seed)
-    env.action_space.seed(config.seed)
-
-    frame_test_set = []
-    for _ in range(num_test_frames):
-        action = env.action_space.sample()
-        obs, reward, terminated, truncated, info = env.step(action)
-        frame = transforms(torch.tensor(obs).permute((2,0,1))) # 
-        frame_test_set.append(frame)
-        if terminated or truncated:
-            obs, info = env.reset()
-    env.close()
-
-    return frame_test_set
-
-def compute_avg_max_q(frame_test_set, q_network):
-
-    q_network.eval()
-
-    max_qs = []
-    for idx in range(num_frames_in_stack, len(frame_test_set)):
-        frames_to_stack = frame_test_set[idx-num_frames_in_stack:idx]
-        frame_stack = torch.cat(frames_to_stack).to(device)
-
-        with torch.no_grad():
-            max_q = torch.max(q_network(frame_stack)).item()
-        max_qs.append(max_q)
-
-    return float(np.mean(max_qs))
 
 save_dir = config.save_dir
 checkpoint_manager = CheckpointManager(save_dir)
@@ -128,6 +97,7 @@ num_test_frames = config.num_test_frames
 replay_memory = ReplayBuffer(capacity) 
 frame_history = FrameBuffer(num_frames_in_stack, device, transforms)
 agent = Agent(config, env_mgr.num_actions, device)
+evaluator = Evaluator(num_test_frames, transforms, device)
 # q_network = QNetwork(env_mgr.num_actions).to(device)
 # q_network_target = QNetwork(env_mgr.num_actions).to(device) if use_target_network else q_network
 # loss = nn.MSELoss()
@@ -139,7 +109,7 @@ ep_rewards = []
 ep_durations = []
 
 print(f"Generating frame test set...")
-frame_test_set = generate_frame_test_set(num_test_frames, transforms, env_mgr.env)
+evaluator.build_test_set(gym.make("ALE/Pong-v5"), config.seed)
 # avg_max_qs = []
 
 # check_list = []
@@ -267,7 +237,7 @@ for step in range(start_step, num_samples):
 
     if (step+1) % update_interval == 0:
         avg_loss_between_updates = total_loss_between_updates / samples_between_updates
-        avg_max_q = compute_avg_max_q(frame_test_set, agent.online_net)
+        avg_max_q = evaluator.compute_avg_max_q(agent)
         update_duration = time.time() - t0_update
 
         print(f"Step {step+1} / {num_samples} | Avg loss since last update: {avg_loss_between_updates:.8f}")
