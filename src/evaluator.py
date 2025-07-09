@@ -55,4 +55,5 @@ class Evaluator:
             frames_to_stack = self.frame_test_set[idx - stack_size:idx]
             frame_stack = torch.cat(frames_to_stack, dim=0).to(self.device)
             with torch.no_grad():
-                max_qs.append(torch.max(agent.online_net(frame_stack)).item())        return float(np.mean(max_qs))
+                max_qs.append(torch.max(agent.online_net(frame_stack)).item())
+        return float(np.mean(max_qs))
