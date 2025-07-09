@@ -268,8 +268,19 @@ class PGTrainer:
             done = term or trunc
         render_env.close()
 
-def create_dataloaders_for_value_network(batch_observations: list[list[float]], batch_future_returns: list[float]) -> tuple[DataLoader, DataLoader]:
-    """Function for creating train and test dataloaders for training value function network."""
+def create_dataloaders_for_value_network(
+    batch_observations: list[list[float]],
+    batch_future_returns: list[float],
+) -> tuple[DataLoader, DataLoader]:
+    """Create train and test dataloaders for training a value function network.
+
+    Args:
+        batch_observations (list[list[float]]): List of observations from training episodes.
+        batch_future_returns (list[float]): Returns associated with each observation.
+
+    Returns:
+        tuple[DataLoader, DataLoader]: Train and test dataloaders.
+    """
     X = torch.tensor(batch_observations, dtype=torch.float32)
     y = torch.tensor(batch_future_returns, dtype=torch.float32)
     full_dataset = TensorDataset(X, y)
@@ -279,7 +290,16 @@ def create_dataloaders_for_value_network(batch_observations: list[list[float]], 
     return train_dataloader, test_dataloader
 
 def test(model: nn.Module, loss: nn.Module, test_dataloader: DataLoader) -> float:
-    """Function for computing loss of the value function network on the test set."""
+    """Compute the loss of the value function network on the test set.
+
+    Args:
+        model (nn.Module): Network to evaluate.
+        loss (nn.Module): Loss function used for evaluation.
+        test_dataloader (DataLoader): Dataloader providing the test samples.
+
+    Returns:
+        float: Average test loss.
+    """
     loss_total = 0
     n_samples = 0
     model.eval()

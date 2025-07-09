@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import random
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Sequence
 
 from src.networks import QNetwork
 from src.config import Config
@@ -58,7 +58,7 @@ class Agent:
                 action = int(torch.argmax(q_values, dim=-1).item())
         return action
 
-    def learn(self, batch) -> float:
+    def learn(self, batch: Sequence[Dict[str, Any]]) -> float:
         """Perform a learning step on a batch of transitions.
 
         Args:
@@ -69,7 +69,7 @@ class Agent:
         Returns:
             float: The computed loss value for this batch.
         """
-        # Prepare tensors
+        # Convert batch dictionaries to tensors for efficient computation
         states = torch.stack([sample["state_representation"] for sample in batch]).to(self.device)
         next_states = torch.stack([sample["state_representation_next"] for sample in batch]).to(self.device)
         actions = torch.tensor([sample["action"] for sample in batch], dtype=torch.long, device=self.device)
