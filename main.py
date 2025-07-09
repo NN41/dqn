@@ -281,4 +281,6 @@ for step in range(start_step, num_samples):
         t0_seconds = time.time()
 
         frame_history.clear()
-        obs, info = env_mgr.env.reset()env_mgr.env.close()
+        obs, info = env_mgr.env.reset()
+        
+env_mgr.env.close()
