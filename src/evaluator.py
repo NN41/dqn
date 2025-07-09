@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from typing import List, Sequence, Any
+import gymnasium as gym
 from torch import Tensor
 
 class Evaluator:
@@ -17,7 +18,7 @@ class Evaluator:
         self.device: str = device
         self.frame_test_set: List[Tensor] = []
 
-    def build_test_set(self, env, seed: int) -> None:
+    def build_test_set(self, env: gym.Env, seed: int) -> None:
         """Generate and cache a fixed set of transformed frames from random policy.
 
         Args:
@@ -37,7 +38,7 @@ class Evaluator:
                 obs, info = env.reset()
         env.close()
 
-    def compute_avg_max_q(self, agent) -> float:
+    def compute_avg_max_q(self, agent: "Agent") -> float:
         """Compute the average max Q-value over the cached test set using the agent's online net.
 
         Args:
@@ -46,13 +47,12 @@ class Evaluator:
         Returns:
             float: Mean of max Q-values across the test frames.
         """
-        self.agent = agent
-        self.agent.online_net.eval()
+        agent.online_net.eval()
         max_qs = []
-        stack_size = agent.online_net.conv1.in_channels  # number of stacked frames
+        # Number of frames expected by the convolutional layers
+        stack_size = agent.online_net.conv1.in_channels
         for idx in range(stack_size, len(self.frame_test_set)):
             frames_to_stack = self.frame_test_set[idx - stack_size:idx]
             frame_stack = torch.cat(frames_to_stack, dim=0).to(self.device)
             with torch.no_grad():
-                max_qs.append(torch.max(agent.online_net(frame_stack)).item())
-        return float(np.mean(max_qs))
+                max_qs.append(torch.max(agent.online_net(frame_stack)).item())        return float(np.mean(max_qs))
