@@ -1,7 +1,6 @@
 import os
-from typing import Optional, Dict, Any
-
 import torch
+from typing import Optional, Dict, Any
 
 
 class CheckpointManager:
@@ -26,5 +25,6 @@ class CheckpointManager:
             "model_state": agent.online_net.state_dict(),
             "target_model_state": agent.target_net.state_dict(),
             "optim_state": optimizer.state_dict(),
-        }        torch.save(state, self.ckpt_path)
+        }
+        torch.save(state, self.ckpt_path)
 
