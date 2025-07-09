@@ -1,78 +1,109 @@
-
-import numpy as np
 import torch
 import torch.nn as nn
+import numpy as np
+import random
+from typing import List, Dict, Any, Optional
 
-import gymnasium as gym
-
+from src.networks import QNetwork
 from src.config import Config
-from src.networks import PolicyMLP, ValueMLP
 
-class Agent():
-    """
-    An agent that learns to solve an environment using a policy gradient algorithm.
-    Action space must be discrete.
+class Agent:
+    """Deep Q-learning agent that encapsulates the online and target networks,
+    optimizer, loss function, epsilon-greedy policy, and learning updates.
 
-    Contains the networks to approximate the policy and the value function, and the logic
-    for selecting an action and updating the network parameters.
+    Args:
+        config (Config): Configuration with hyperparameters.
+        num_actions (int): Number of discrete actions in the environment.
+        device (str): Device string ('cpu' or 'cuda') for tensor operations.
     """
-    def __init__(self, env: gym.Env, config: Config):
-        """
-        Initializes the Agent.
+    def __init__(self, config: Config, num_actions: int, device: str) -> None:
+        # Networks
+        self.online_net = QNetwork(num_actions).to(device)
+        if config.use_target_network:
+            self.target_net = QNetwork(num_actions).to(device)
+            self.target_net.load_state_dict(self.online_net.state_dict())
+        else:
+            self.target_net = self.online_net
+
+        # Hyperparameters
+        self.gamma: float = config.gamma
+        self.eps_start: float = config.eps_start
+        self.eps_end: float = config.eps_end
+        self.anneal_length: float = config.anneal_length
+        self.eps_curr: float = self.eps_start
+        self.step_counter: int = 0
+
+        # Optimizer and loss
+        self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=config.learning_rate)
+        self.loss_fn = nn.MSELoss()
+
+        self.device = device
+
+    def act(self, state: torch.Tensor, enough_frames_in_history: bool, evaluation: bool = False) -> int:
+        """Select an action using epsilon-greedy policy.
 
         Args:
-            env (gym.Env): The environment in which the agent will act.
-            config (Config): The configuration object containing the hyperparameters of the Agent.
-        """
-        self.num_actions = env.action_space.n
-        self.num_features = env.observation_space.shape[0]
-        self.config = config
-
-        # Initialize MLPs and their optimizers
-        self.policy_network = PolicyMLP(self.num_features, self.config.policy_hidden_size, self.num_actions).to(self.config.device)
-        self.policy_optimizer = torch.optim.Adam(self.policy_network.parameters(), lr=self.config.policy_learning_rate)
-        self.value_network = ValueMLP(self.num_features, self.config.value_hidden_size, 1).to(self.config.device)
-        self.value_optimizer = torch.optim.Adam(self.value_network.parameters(), lr=self.config.value_learning_rate, weight_decay=self.config.value_weight_decay)
-
-    def select_action(self, observation: np.ndarray, inference_mode: bool = False) -> tuple[int, torch.Tensor]:
-        """
-        Randomly samples an action from the policy based on the observed state of the environment.
-
-        Args:
-            observation (np.ndarray): An observation of the state of the environment.
-            inference_mode (bool): If True, uses evaluation mode for the policy network. Used for rendering.
+            state (torch.Tensor): Input state tensor of shape (C, H, W).
+            evaluation (bool): If True, always choose greedy action (epsilon=0).
 
         Returns:
-            tuple[int, torch.Tensor]: A tuple containing:
-                - int: The randomly chosen action.
-                - torch.Tensor: The corresponding log-probability as a Tensor to preserve the computational graph for backprop
+            int: Chosen action index.
         """
-        observation_tensor = torch.tensor(observation, dtype=torch.float32).to(self.config.device)
-        if not inference_mode:
-            self.policy_network.train()
-            logits = self.policy_network(observation_tensor)
-        else:
-            self.policy_network.eval()
-            with torch.no_grad():
-                logits = self.policy_network(observation_tensor)
+        self.online_net.eval()
+        action = random.randrange(self.online_net.fc2.out_features)
+        if enough_frames_in_history:
+            if evaluation or (random.random() > self.eps_curr):
+                with torch.no_grad():
+                    q_values = self.online_net(state.unsqueeze(0).to(self.device))
+                action = int(torch.argmax(q_values, dim=-1).item())
+        return action
 
-        # Get action probabilities from the logits using Softmax
-        action_probs = nn.Softmax(dim=-1)(logits)
-        
-        # Randomly choose an action and compute the corresponding log-probability
-        action = int(np.random.choice(self.num_actions, p=action_probs.detach().cpu().numpy()))
-        log_prob = torch.log(action_probs[action])
-        
-        return action, log_prob
+    def learn(self, batch) -> float:
+        """Perform a learning step on a batch of transitions.
 
-    def update_policy_network(self, batch_loss_policy_network: torch.Tensor):
-        """Performs a single gradient descent step using backprop."""
-        self.policy_optimizer.zero_grad()
-        batch_loss_policy_network.backward()
-        self.policy_optimizer.step()
+        Args:
+            batch: Array of transition dicts with keys
+                'state_representation', 'action', 'reward',
+                'state_representation_next', 'is_terminal_state'.
 
-    def reset_value_optimizer(self):
-        """Resets the optimizer of the value function network."""
-        self.value_optimizer = torch.optim.Adam(self.value_network.parameters(), lr=self.config.value_learning_rate, weight_decay=self.config.value_weight_decay)
- 
- 
+        Returns:
+            float: The computed loss value for this batch.
+        """
+        # Prepare tensors
+        states = torch.stack([sample["state_representation"] for sample in batch]).to(self.device)
+        next_states = torch.stack([sample["state_representation_next"] for sample in batch]).to(self.device)
+        actions = torch.tensor([sample["action"] for sample in batch], dtype=torch.long, device=self.device)
+        rewards = torch.tensor([sample["reward"] for sample in batch], dtype=torch.float32, device=self.device)
+        dones = torch.tensor([sample["is_terminal_state"] for sample in batch], dtype=torch.bool, device=self.device)
+
+        # Compute target Q-values
+        with torch.no_grad():
+            self.target_net.eval()
+            q_next = self.target_net(next_states)
+            max_q_next = torch.max(q_next, dim=-1).values
+            targets = rewards + self.gamma * max_q_next * (~dones)
+
+        # Compute current Q-values
+        self.online_net.train()
+        q_values = self.online_net(states)
+        action_qs = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+
+        # Loss and backward
+        loss = self.loss_fn(action_qs, targets)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Epsilon decay
+        self.step_counter += 1
+        decay = (self.eps_start - self.eps_end) / self.anneal_length
+        self.eps_curr = max(self.eps_end, self.eps_curr - decay)
+
+        return loss.item()
+
+    def sync_target(self) -> None:
+        """Copy online network parameters to the target network."""
+        if self.online_net is not self.target_net:
+            print(f"\tSyncing target network...")
+            self.target_net.load_state_dict(self.online_net.state_dict())
+

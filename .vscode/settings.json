@@ -1,0 +1,6 @@
+{
+  // for intellisense & import‐resolution
+  "python.analysis.extraPaths": ["src"],    
+  // for Jupyter/Interactive window
+  "jupyter.notebookFileRoot": "${workspaceFolder}"
+}
