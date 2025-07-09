@@ -25,7 +25,7 @@ import time
 import torch
 import torch.nn as nn
 from torchvision.transforms import v2
-from torch.utils.tensorboard import SummaryWriter
+from src.logger import Logger
 
 from src.utils import ReplayBuffer, FrameBuffer
 from src.networks import QNetwork
@@ -102,7 +102,7 @@ evaluator = Evaluator(num_test_frames, transforms, device)
 # q_network_target = QNetwork(env_mgr.num_actions).to(device) if use_target_network else q_network
 # loss = nn.MSELoss()
 # optimizer = torch.optim.Adam(q_network.parameters(), lr=config.learning_rate)
-writer = SummaryWriter()
+logger = Logger()
 
 ep_lengths = []
 ep_rewards = []
@@ -243,10 +243,13 @@ for step in range(start_step, num_samples):
         print(f"Step {step+1} / {num_samples} | Avg loss since last update: {avg_loss_between_updates:.8f}")
         print(f"\tAvg max_q: {avg_max_q:.8f}")
 
-        writer.add_scalar("Update_Metrics/Avg_Loss", avg_loss_between_updates, step)
-        writer.add_scalar("Update_Metrics/Avg_Max_Q", avg_max_q, step)
-        writer.add_scalar("Update_Metrics/Total_Reward", total_reward_between_updates, step)
-        writer.add_scalar("Update_Metrics/Duration_Min", update_duration / 60, step)
+        logger.log_update(
+            avg_loss_between_updates,
+            avg_max_q,
+            total_reward_between_updates,
+            update_duration / 60,
+            step,
+        )
         
         total_loss_between_updates = 0
         min_loss_between_updates = +1e9
@@ -272,9 +275,12 @@ for step in range(start_step, num_samples):
         episode = len(ep_lengths)
         print(f"\tEpisode {episode} finished! | Length {ep_length} | Reward {ep_reward} | Duration {ep_duration:.0f} seconds")
 
-        writer.add_scalar("Episode_Metrics/Duration_Sec", ep_duration, episode)
-        writer.add_scalar("Episode_Metrics/Length", ep_length, episode)
-        writer.add_scalar("Episode_Metrics/Reward", ep_reward, episode)
+        logger.log_episode(
+            ep_duration,
+            ep_length,
+            ep_reward,
+            episode,
+        )
 
         ep_length = 0
         ep_reward = 0
@@ -282,5 +288,6 @@ for step in range(start_step, num_samples):
 
         frame_history.clear()
         obs, info = env_mgr.env.reset()
-        
+
+logger.close()
 env_mgr.env.close()
