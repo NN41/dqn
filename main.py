@@ -33,6 +33,7 @@ from src.evaluator import Evaluator
 from src.config import Config
 from src.environment import EnvironmentManager
 from src.agent import Agent
+from src.checkpoint_manager import CheckpointManager
 
 # ale_py.register_v5_envs()
 gym.register_envs(ale_py)
@@ -71,19 +72,8 @@ transforms = v2.Compose([
         ])
 
 
-def load_latest_ckpt(save_dir):
-    ckpts = sorted(
-        [f for f in os.listdir(save_dir) if f.startswith("ckpt_")],
-        key=lambda fn: int(fn.split("_")[1].split(".")[0]),
-    )
-    if not ckpts:
-        return None
-    path = os.path.join(save_dir, ckpts[-1])
-    return torch.load(path)
-
-save_dir  = config.save_dir
-ckpt_path = os.path.join(save_dir, "ckpt.pth")
-os.makedirs(save_dir, exist_ok=True)
+save_dir = config.save_dir
+checkpoint_manager = CheckpointManager(save_dir)
 
 capacity = config.capacity
 num_samples_per_epoch = config.num_samples_per_epoch
@@ -98,7 +88,6 @@ eps_start = config.eps_start
 eps_end = config.eps_end
 anneal_length = config.anneal_length
 
-eps_curr = eps_start
 
 gamma = config.gamma
 num_frames_in_stack = config.num_frames_in_stack
@@ -138,17 +127,17 @@ t0_update = time.time()
 # all_batch_losses = []
 state_representation = None
 
-if os.path.isfile(ckpt_path):
-    ckpt       = torch.load(ckpt_path, map_location=device)
+ckpt = checkpoint_manager.load()
+if ckpt is not None:
     start_step = ckpt["step"]
-    eps_curr   = ckpt["eps_curr"]
-    q_network.load_state_dict(ckpt["model_state"])
-    q_network_target.load_state_dict(ckpt["target_model_state"])
-    optimizer.load_state_dict(ckpt["optim_state"])
-    print(f"Resuming from step {start_step}, ε={eps_curr:.3f}")
+    agent.eps_curr = ckpt["eps_curr"]
+    agent.online_net.load_state_dict(ckpt["model_state"])
+    agent.target_net.load_state_dict(ckpt["target_model_state"])
+    agent.optimizer.load_state_dict(ckpt["optim_state"])
+    print(f"Resuming from step {start_step}, ε={agent.eps_curr:.3f}")
 else:
     start_step = 0
-    eps_curr   = eps_start
+    agent.eps_curr = agent.eps_start
     print("No checkpoint found; starting from scratch")
 
 # try:
@@ -241,7 +230,10 @@ for step in range(start_step, num_samples):
     ep_reward += reward
     total_reward_between_updates += reward
     ep_length += 1
-    eps_curr = max([eps_end, eps_curr - (eps_start - eps_end) / anneal_length])
+    agent.eps_curr = max(
+        eps_end,
+        agent.eps_curr - (eps_start - eps_end) / anneal_length,
+    )
 
     if (step+1) % update_interval == 0:
         avg_loss_between_updates = total_loss_between_updates / samples_between_updates
@@ -265,14 +257,7 @@ for step in range(start_step, num_samples):
 
     if (step + 1) % checkpoint_interval == 0:
         print(f"\tSaving Model...")
-        state = {
-            "step":      step + 1,
-            "eps_curr":  eps_curr,
-            "model_state": q_network.state_dict(),
-            "target_model_state": q_network_target.state_dict(),
-            "optim_state": optimizer.state_dict(),
-        }
-        torch.save(state, ckpt_path)
+        checkpoint_manager.save(step + 1, agent, agent.optimizer)
         print(f"Saved checkpoint at step {step+1}")
 
     if done:

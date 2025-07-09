@@ -1,0 +1,3 @@
+* Keep new code and code changes as simple as possible. In particular, change as little as possible in the existing code, only changing the code that is strictly necessary.
+* Adjust the style and robustness of new code and code changes to the style and robustness of the existing code. For example, if the existing code is clearly structured for personal use, adopt a similar style. If the code is clearly production-ready code, adopt a similar production-ready coding style.
+* Use the Google style for writing doc strings (that is, include both "Args" and "Returns" where applicable)
