@@ -41,6 +41,14 @@ Relevant training metrics are logged to the `runs/` directory. To view them in T
 tensorboard --logdir runs
 ```
 
+### 4. Visualizing a Trained Model
+To watch a trained agent play Pong for a given number of steps, place the model
+inside the `models/trained/` directory and adjust the parameters at the top of
+`src/render.py`:
+```bash
+python -m src.render
+```
+
 ## Background & Implementation
 The implementation in this project is directly based on the 2013 paper by Mnih et al. "Playing Atari with Deep Reinforcement Learning", who were the first to successfully use a deep learning model to learn to play Atari 2600 games directly from visual input. The theory is furthermore based on OpenAI's [Spinning Up in Deep RL](https://spinningup.openai.com/en/latest/index.html).
 
