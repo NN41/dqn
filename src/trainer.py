@@ -140,7 +140,7 @@ class Trainer:
             if (step + 1) % cfg.checkpoint_interval == 0:
                 print("\tSaving Model...")
                 self.checkpoint_manager.save(step + 1, self.agent, self.agent.optimizer)
-                print(f"Saved checkpoint at step {step+1}")
+                print(f"\tSaved checkpoint at step {step+1}")
 
             if done:
                 t1_seconds = time.time()

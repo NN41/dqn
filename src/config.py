@@ -9,7 +9,7 @@ class Config:
     serialized for logging and reproducibility purposes of experiments.
     """
     # Training loop
-    num_samples_per_epoch: int = 10_000  # transitions collected in each epoch
+    num_samples_per_epoch: int = 10_000  # number of environment steps collected in each epoch
     num_epochs: int = 64                 # number of epochs to run
     seed: int = 42                       # random seed for reproducibility
     
@@ -18,10 +18,10 @@ class Config:
         return self.num_samples_per_epoch * self.num_epochs
 
     # Network, training and testing
-    target_network_sync_interval: int = 500  # steps between syncing target net
     use_target_network: bool = True          # if False, only an online network
+    target_network_sync_interval: int = 500  # steps between syncing target net weights to the online net weights
     gamma: float = 0.99                      # discount factor
-    num_test_frames: int = 2_000             # frames to evaluate per epoch
+    num_test_frames: int = 2_000             # number of frames in test set to evalute the max-Q values on
     learning_rate: float = 1e-4              # optimizer learning rate
 
     # Epsilon annealing
@@ -42,5 +42,5 @@ class Config:
     checkpoint_interval: int = 10_000  # env steps between creating checkpoints
     save_dir: str = "models/checkpoints"
 
-    # Other    device: str = field(default_factory=lambda: "cuda" if torch.cuda.is_available() else "cpu")  # computation device
+    device: str = field(default_factory=lambda: "cuda" if torch.cuda.is_available() else "cpu")  # computation device
  
