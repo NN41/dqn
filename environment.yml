@@ -7,7 +7,8 @@ dependencies:
   - python=3.10
   - pytorch
   - box2d-py
-  - numpy
+  - torchvision
+  - ale-py
   - pip
   - pip:
     - gymnasium==1.1.1
