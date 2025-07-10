@@ -2,18 +2,15 @@
 
 This project implements a Deep Q-Network (DQN) from scratch using PyTorch and Gymnasium, with the goal to learn to play [Pong](https://ale.farama.org/environments/pong/), a classic Atari 2600 game implemented in the Arcade Learning Environment ([ALE](https://ale.farama.org/)).
 
-The goal of this project is to gain experience  with Q-learning and explore some variations to improve training (...). This implementation directly follows that of the original 2013 paper by Mnih et al, "Playing Atari with Deep Reinforcement Learning".
+The goal of this project is to gain experience  with Q-learning and explore some more advanced variations to improve training. This implementation directly follows that of the original 2013 paper by Mnih et al, "Playing Atari with Deep Reinforcement Learning".
 
 Even though time and hardware constraints limited the performance the agent could achieve, we managed to achieve significant improvement.
-
-## Demo: Playing Pong
-
 
 ## Overview of Implementations
 * **ALE/Pong-v5**: The latest ALE environment implementing Pong with frameskip and non-zero action repeat probability.
 * **DQN**: Implementation of a deep Q-network (DQN) to learn the action-value function Q. The network consists of two convolutional and two fully-connected layers and is trained using stochastic gradient descent and a Q-learning algorithm.
 * **Replay Experience**: We use *replay experience* to handle non-stationarity and correlations in the data, and ...
-* ...
+* **Target DQN**: Implementation of a target DQN, helping against Q-value overestimation issue and significantly improving training performance.
 
 ## Setup & Usage
 ### Installation
@@ -25,6 +22,7 @@ cd dqn
 conda env create -f environment.yml
 conda activate dqn
 ```
+Note: you might need to manually put the pong.bin file in the correct directory.
 
 ### 2. Running a Single Training Loop
 To run a single training loop with the default hyperparameters:
@@ -32,21 +30,12 @@ To run a single training loop with the default hyperparameters:
 ```bash
 python main.py
 ```
-
-Note that the agent only starts noticeably improving after ... weight updates, which takes ... hours on my 10-year old laptop with an NVIDIA GeForce GTX 1050. Training metrics are stored directly in the `runs/` directory and can be visualized in TensorBoard.
+Training metrics are stored directly in the `runs/` directory and can be visualized in TensorBoard.
 
 ### 3. Monitoring with TensorBoard
 Relevant training metrics are logged to the `runs/` directory. To view them in TensorBoard, run the following command:
 ```bash
 tensorboard --logdir runs
-```
-
-### 4. Visualizing a Trained Model
-To watch a trained agent play Pong for a given number of steps, place the model
-inside the `models/trained/` directory and adjust the parameters at the top of
-`src/render.py`:
-```bash
-python -m src.render
 ```
 
 ## Background & Implementation
@@ -58,16 +47,20 @@ As in the paper, our DQN is comprised of two convolutional layers (first 16 8x8 
 
 We also implement a basic *experience replay* mechanism, which stores the agent's experiences in the form of transitions $e_t = (\phi_t, a_t, r_t, \phi_{t+1})$ in a *replay memory*. At each step (frame) during training, we uniformly sample a minibatch of size 32 from the replay memory, compute the MSE loss with respect to the one-step temporal difference target and update the weights $\theta$ using Stochastic Gradient Descent (SGD). This one-step temporal difference target $y_j = r_j + \gamma \max_{a}Q(\phi_{j+1}, a; \theta)$ is based on the Bellman Equations. The experience replay mechanism has several benefits. It reuses data, stabilizes the data distribution and breaks correlations.
 
-This implementation deviates from the original paper in a few ways. First, we use an Adam optimizer (instead of RMSprop) with a learning rate of 1e-4. Even though RMSprop theoretically better handles non-stationarity of input distributions (why?), in this project Adam is giving smoother loss curves. Besides, implementations I found online also use Adam with 1e-4 learning rate. Next, we train the agent for ~600k steps with a replay memory of 25k transitions, instead of 10 million and 1 million as in the paper, respectively. The reason is hardware and time constraints. Last, we anneal $\epsilon$ of the $\epsilon$-greedy policy from 1 to 0.1 over only 320k frames, instead of 1 million. 
+This implementation deviates from the original paper in a few ways. First, we use an Adam optimizer (instead of RMSprop) with a learning rate of 1e-4. Even though RMSprop theoretically better handles non-stationarity of input distributions, in this project Adam is giving smoother loss curves. Besides, implementations I found online also use Adam with 1e-4 learning rate. Next, we train the agent for ~600k steps with a replay memory of 25k transitions, instead of 10 million and 1 million as in the paper, respectively. The reason is hardware and time constraints. Last, we anneal $\epsilon$ of the $\epsilon$-greedy policy from 1 to 0.1 over only 320k frames, instead of 1 million. 
 
 ## Experiments
-# Experiment 1: Vanilla DQN
-- We see the first significant improvements at step 200k, which equates to 2 hours of training time.
+### Online DQN and Target DQN
 
-# Experiment 2: ...
+In the figure below, you see two training runs. The y-axis shows the final score per completed game and the x-axis shows the number of games played.
 
-## Key Learnings & Obstacles
+The blue line is vanilla DQN as described in the Background section: it uses only a single DQN for both the online and the target network. Even though at takes a long time to see some noticeable improvement (after ~200k environment/update steps), it does clearly improve, with its best run achieving -8 points.
 
+The pink line shows a training run where, in addition to the online network, we also use a target network that we synchronize with the online network every 500 steps. It is well-known that this (simple) modification to the training algorithm helps combat the problem of Q-value overestimation and stabilizes and improves training. In our case, we start seeing noticeable learning after way fewer steps (~100k), and it learns quicker and better. Its best game achieved a score of +3.
+
+![Results](assets/Screenshot%202025-07-02%20133726.png)
+
+Note that the figure displays the number of completed games on the x-axis, while the training process end was determined by the number of environment steps. Because the pink line belongs to the more successful algorithm, the agent is able to survive longer and hence play fewer complete games in the same number of environment steps. This explains why the pink line "stops" before the blue line.
 
 ## Future Work
 - [ ] Improve storage of transitions in replay memory. Instead of storing two 4-frame stacks for each transition, store the (preprocessed) frames individually, then create the two frame stacks on the fly, reducing memory footprint by 8x. This allows us to keep a larger replay memory in the GPU memory, avoiding having to move frame stacks to and from the GPU, speeding up training as well. 
