@@ -1,0 +1,15 @@
+name: dqn
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pytorch
+  - box2d-py
+  - numpy
+  - pip
+  - pip:
+    - gymnasium==1.1.1
+    - tensorboard==2.19.0
+    - pygame==2.6.1

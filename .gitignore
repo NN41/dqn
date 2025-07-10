@@ -84,3 +84,4 @@ models/*
 # Private files
 notes.txt
 dev.ipnyb
+requirements.txt
