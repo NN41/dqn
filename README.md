@@ -9,7 +9,7 @@ Even though time and hardware constraints limited the performance the agent coul
 ## Overview of Implementations
 * **ALE/Pong-v5**: The latest ALE environment implementing Pong with frameskip and non-zero action repeat probability.
 * **DQN**: Implementation of a deep Q-network (DQN) to learn the action-value function Q. The network consists of two convolutional and two fully-connected layers and is trained using stochastic gradient descent and a Q-learning algorithm.
-* **Replay Experience**: We use *replay experience* to handle non-stationarity and correlations in the data, and ...
+* **Replay Experience**: We use *replay experience* to handle non-stationarity and correlations in the data, and improve data-usage efficiency.
 * **Target DQN**: Implementation of a target DQN, helping against Q-value overestimation issue and significantly improving training performance.
 
 ## Setup & Usage
